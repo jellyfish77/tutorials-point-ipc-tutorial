@@ -1,0 +1,3 @@
+Report process segment sizes of n programs using the 'size' command:
+
+size segment_size1 segment_size2 segment_size3 segment_size4 segment_size5
