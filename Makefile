@@ -1,42 +1,46 @@
-# If make is run, same outcome as make all
-.DEFAULT_GOAL := all
+#from: https://spin.atomicobject.com/2016/08/26/makefile-c-projects/
 
-# Define make as Phony target - i.e. run even if file named "make" exists
-.PHONY: all
+TARGET_EXEC ?= a.out
 
-BIN_DIR = bin
-SRC_DIR = src
-LIB_DIR = lib
+CC = gcc
+CFLAGS  = -ggdb
 
-libs:
-	cd lib && $(MAKE)
+BUILD_DIR ?= ./build
+SRC_DIRS ?= ./src
 
-all: libs
-	# set up /bin output
-	mkdir -p bin
+SRCS := $(shell find $(SRC_DIRS) -name *.cpp -or -name *.c -or -name *.s)
+OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
+DEPS := $(OBJS:.o=.d)
 
-	# build objects by calling makefiles in sub dirs
-	cd src/process_info && $(MAKE)
-	cd src/process_image && $(MAKE)
-	cd src/process_creation && $(MAKE)
+INC_DIRS := $(shell find $(SRC_DIRS) -type d)
+INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
-	# link objects and libraries
-	$(CC) $(CFLAGS) -o $(BIN_DIR)/processinfo $(SRC_DIR)/process_info/processinfo.o
+CPPFLAGS ?= $(INC_FLAGS) -MMD -MP
 
-	$(CC) $(CFLAGS) -o $(BIN_DIR)/segment_size1 $(SRC_DIR)/process_image/segment_size1.o
-	$(CC) $(CFLAGS) -o $(BIN_DIR)/segment_size2 $(SRC_DIR)/process_image/segment_size2.o
-	$(CC) $(CFLAGS) -o $(BIN_DIR)/segment_size3 $(SRC_DIR)/process_image/segment_size3.o
-	$(CC) $(CFLAGS) -o $(BIN_DIR)/segment_size4 $(SRC_DIR)/process_image/segment_size4.o
-	$(CC) $(CFLAGS) -o $(BIN_DIR)/segment_size5 $(SRC_DIR)/process_image/segment_size5.o
+$(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)
+	$(CC) $(OBJS) -o $@ $(LDFLAGS)
 
-	$(CC) $(CFLAGS) -o $(BIN_DIR)/basicfork $(SRC_DIR)/process_creation/basicfork.o
-	$(CC) $(CFLAGS) -o $(BIN_DIR)/atexit_sample $(SRC_DIR)/process_creation/atexit_sample.o
-	$(CC) $(CFLAGS) -o $(BIN_DIR)/at_exit_sample $(SRC_DIR)/process_creation/at_exit_sample.o
-	$(CC) $(CFLAGS) -o $(BIN_DIR)/pids_after_fork $(SRC_DIR)/process_creation/pids_after_fork.o
+# assembly
+$(BUILD_DIR)/%.s.o: %.s
+	$(MKDIR_P) $(dir $@)
+	$(AS) $(ASFLAGS) -c $< -o $@
+
+# c source
+$(BUILD_DIR)/%.c.o: %.c
+	$(MKDIR_P) $(dir $@)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+
+# c++ source
+$(BUILD_DIR)/%.cpp.o: %.cpp
+	$(MKDIR_P) $(dir $@)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+
+
+.PHONY: clean
 
 clean:
-	cd lib && $(MAKE) clean
-	cd src/process_info && $(MAKE) clean
-	cd src/process_image && $(MAKE) clean
-	cd src/process_creation && $(MAKE) clean
-	rm -rf ./$(BIN_DIR)
+	$(RM) -r $(BUILD_DIR)
+
+-include $(DEPS)
+
+MKDIR_P ?= mkdir -p
